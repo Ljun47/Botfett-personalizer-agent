@@ -1,0 +1,10 @@
+# Personalization Agent - Requirements
+# Python 3.12.10
+
+# MLX - Apple Silicon 최적화 LLM 프레임워크
+mlx>=0.20.0
+mlx-lm>=0.20.0
+
+# 기본 라이브러리 (Python 3.12에 대부분 포함되어 있지만 명시)
+# json - 내장 라이브러리
+# datetime - 내장 라이브러리
