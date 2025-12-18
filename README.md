@@ -7,26 +7,43 @@
 - **멀티 소스 데이터 통합**: 시장 분석, 뉴스 분석, 사용자 프로필 데이터를 종합 분석
 - **LLM 기반 시나리오 결정**: 9개 투자 시나리오 중 최적 전략 자동 선택
 - **A2A 프로토콜**: Agent-to-Agent 통신으로 다른 에이전트와 협업
-- **MCP 서버 연동**: 사용자 프로필 데이터베이스 접근
-- **로컬 LLM 실행**: MLX를 활용한 Apple Silicon 최적화
+- **유저 DB 조회**: 사용자 프로필 데이터베이스 접근
 
 ## 시스템 요구사항
 
 ### 필수 요구사항
-- **OS**: macOS (Apple Silicon - M1/M2/M3/M4)
 - **Python**: 3.12.10
-- **메모리**:
-  - 최소 8GB RAM
-  - 권장 16GB+ RAM
+- **OpenAI API 키**: [OpenAI Platform](https://platform.openai.com/api-keys)에서 발급
 
 ### 지원하는 LLM 모델
-- MLX 최적화 모델 (HuggingFace의 `mlx-community` 모델들)
-- 예시:
-  - `mlx-community/gpt-oss-20b-MXFP4-Q8`
-  - `mlx-community/Llama-3.2-3B-Instruct-4bit`
-  - `mlx-community/Mistral-7B-Instruct-v0.3-4bit`
+- OpenAI GPT 시리즈
+  - `gpt-5.2` (현재 사용 중)
+  - `gpt-5-mini`
+  - `gpt-5.2-pro`
 
-> **주의**: MLX는 Apple Silicon 전용입니다. Intel Mac이나 Windows/Linux에서는 작동하지 않습니다.
+## 설치 방법
+
+### 1. 필요한 패키지 설치
+```bash
+pip install openai python-dotenv
+```
+
+### 2. 환경변수 설정 (API 키)
+
+프로젝트 폴더에 `.env` 파일을 생성하고 OpenAI API 키를 입력하세요:
+
+```bash
+# .env 파일 생성
+touch .env
+```
+
+`.env` 파일 내용:
+```
+OPENAI_API_KEY=your-actual-openai-api-key-here
+```
+
+- `your-actual-openai-api-key-here`를 실제 OpenAI API 키로 교체하세요(필요 시 제공)
+- API 키는 [OpenAI Platform](https://platform.openai.com/api-keys)에서 발급받을 수 있습니다
 
 ## 실행 방법
 
@@ -35,42 +52,43 @@
 python personalization_agent_mvp.py
 ```
 
-### 다른 모델 사용하기
+### 실행 시 표시되는 정보
+- 입력/출력 토큰 수
+- 호출당 비용
+- 누적 총 비용
+
+### 다른 OpenAI 모델 사용하기
 코드의 `llm` 초기화 부분을 수정:
 
 ```python
 # personalization_agent_mvp.py 파일 하단
-llm = SimpleLLM(model_name="mlx-community/gpt-oss-20b-MXFP4-Q8")
+llm = APILLM(model_name="gpt-5.2")  # 또는 다른 OpenAI 모델
 ```
-
-모델명을 원하는 MLX 모델로 변경 후 실행하세요.
 
 ## 실행 예시
 
 실행하면 4개의 테스트 케이스가 순차적으로 실행됩니다:
 
 ```
-[LLM] 모델 로딩 중...
-✅ 모델 로드 완료
-
 ### 테스트 1: 상승장 + 공격형 사용자 ###
+
+[OpenAI LLM] 모델: gpt-5.2
+✅ API 키 로드 완료
+
 [1] 시장 분석 데이터 수신 중...
 [2] 뉴스 분석 데이터 수신 중...
 [3] 사용자 프로필 조회 중...
-[MCP] 사용자 조회:...
-
-[검증] 입력 데이터 검증 중...
 ✅ 검증 통과
 
 [프롬프트] 생성 중...
 
-[LLM] 추론 실행 중...
-[LLM] 응답 수신 완료 (길이: 247자)
+[OpenAI] API 호출 중...
+[토큰] 입력: 245 / 출력: 18
+[비용] 이번 호출: $0.001585
+[누적] 총 비용: $0.001585
 
-[LLM Raw Response] 'We need to choose scenario. Market analysis: all bull. Risk medium. Liquidity tight_and_rising. News positive. User aggressive. So scenario bull_aggressive. Provide response.<|end|><|start|>assistant<|channel|>final<|message|>시나리오: bull_aggressive'
+[LLM Raw Response] '시나리오: bear_stable'
 
-[파싱] LLM 응답 파싱 중...
-[디버그] <|message|> 이후: 시나리오: bull_aggressive
 ✅ 시나리오 파싱 성공: bull_aggressive
 ✅ 선택된 모델: gpt-oss-20b-v1
 
@@ -78,7 +96,26 @@ llm = SimpleLLM(model_name="mlx-community/gpt-oss-20b-MXFP4-Q8")
   "scenario": "bull_aggressive",
   "selected_model": "gpt-oss-20b-v1"
 }
+
+============================================================
+[최종 요약] OpenAI - gpt-5.2
+============================================================
+총 입력 토큰:  980
+총 출력 토큰:  72
+총 토큰:       1,052
+총 비용:       $0.006340
+============================================================
 ```
+### 9개 투자 시나리오
+
+시장 상황(3) × 투자 성향(3) = 9개 시나리오
+
+| 시장 상황 | 공격형 (Aggressive) | 중립형 (Neutral) | 안정형 (Stable) |
+|----------|-------------------|-----------------|----------------|
+| 상승장 (Bull) | bull_aggressive | bull_neutral | bull_stable |
+| 보합장 (Sideways) | sideways_aggressive | sideways_neutral | sideways_stable |
+| 하락장 (Bear) | bear_aggressive | bear_neutral | bear_stable |
+
 
 ## 코드 구조
 
@@ -86,7 +123,10 @@ llm = SimpleLLM(model_name="mlx-community/gpt-oss-20b-MXFP4-Q8")
 personalization_agent_mvp.py
 ├── A2AProtocol              # Agent-to-Agent 통신 시뮬레이터
 ├── MCPServer                # 사용자 프로필 DB 시뮬레이터
-├── SimpleLLM                # MLX 기반 LLM 래퍼
+├── APILLM                   # OpenAI API 기반 LLM 래퍼
+│   ├── generate()           # LLM 호출 및 응답 생성
+│   ├── _calculate_cost()    # 토큰 기반 비용 계산
+│   └── print_summary()      # 최종 비용 요약
 ├── PersonalizationAgent     # 메인 개인화 에이전트
 │   ├── process()            # 메인 실행 함수
 │   ├── _get_market_data()   # 시장 데이터 수신
@@ -99,16 +139,6 @@ personalization_agent_mvp.py
 ├── MarketAnalysisAgent      # 시장 분석 에이전트 (시뮬레이션)
 └── NewsAnalysisAgent        # 뉴스 분석 에이전트 (시뮬레이션)
 ```
-
-## 9개 투자 시나리오
-
-시장 상황(3) × 투자 성향(3) = 9개 시나리오
-
-| 시장 상황 | 공격형 (Aggressive) | 중립형 (Neutral) | 안정형 (Stable) |
-|----------|-------------------|-----------------|----------------|
-| 상승장 (Bull) | bull_aggressive | bull_neutral | bull_stable |
-| 보합장 (Sideways) | sideways_aggressive | sideways_neutral | sideways_stable |
-| 하락장 (Bear) | bear_aggressive | bear_neutral | bear_stable |
 
 ## 입력 데이터 형식
 
@@ -146,7 +176,7 @@ personalization_agent_mvp.py
 - `sentiment_score`: -1.0 (매우 부정) ~ +1.0 (매우 긍정)
 - `market_impact`: 1 (낮음) ~ 10 (매우 높음)
 
-### 3. 사용자 프로필 (MCP)
+### 3. 사용자 프로필
 ```json
 {
   "user_id": "user_001",
@@ -168,15 +198,23 @@ personalization_agent_mvp.py
 
 ## 커스터마이징
 
-### 모델 매핑 변경
-`PersonalizationAgent` 클래스의 `model_mapping` 딕셔너리를 수정:
+### API 키 변경
+`.env` 파일에서 API 키를 수정하세요:
+```
+OPENAI_API_KEY=your-new-api-key
+```
 
+### 모델 변경
+`PersonalizationAgent` 초기화 부분 수정:
 ```python
-self.model_mapping = {
-    "bull_aggressive": "your_model_id_1",
-    "bull_neutral": "your_model_id_2",
-    # ...
-}
+llm = APILLM(model_name="gpt-5.2")  # 다른 OpenAI 모델로 변경
+```
+
+### 가격 정보 업데이트
+`APILLM` 클래스의 `__init__` 메서드에서 가격 수정:
+```python
+self.input_price = 5.00   # 입력 토큰당 가격 (USD per 1M tokens)
+self.output_price = 20.00  # 출력 토큰당 가격
 ```
 
 ### 프롬프트 수정
@@ -191,10 +229,3 @@ self.users = {
     "your_user_id": {"risk_tolerance": "neutral"}
 }
 ```
-
-## 주의사항
-
-1. **첫 실행 시간**: 모델 다운로드로 인해 첫 실행 시 시간이 오래 걸립니다
-2. **메모리 사용량**: 모델 크기에 따라 4GB~12GB RAM 사용
-3. **Apple Silicon 전용**: Intel Mac이나 다른 OS에서는 작동하지 않습니다
-4. **인터넷 연결**: 모델 다운로드 시 인터넷 필요
