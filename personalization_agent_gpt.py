@@ -116,7 +116,7 @@ class APILLM:
             response = openai.chat.completions.create(
                 model=self.model_name,
                 messages=[
-                    {"role": "system", "content": "당신은 투자 전략 전문가입니다."},
+                    {"role": "system", "content": "You are an expert in US stock market investment strategies."},
                     {"role": "user", "content": prompt}
                 ],
                 temperature=0.7
@@ -143,7 +143,7 @@ class APILLM:
             
         except Exception as e:
             print(f"[API 호출 에러] {str(e)}")
-            return "시나리오: sideways_neutral"
+            return "Scenario: sideways_neutral"
     
     def _calculate_cost(self, input_tokens, output_tokens):
         cost = (input_tokens * self.input_price + output_tokens * self.output_price) / 1_000_000
@@ -316,37 +316,35 @@ class PersonalizationAgent:
         
         sentiment = news_data["news_analysis"].get("sentiment_score", 0)
         impact = news_data["news_analysis"].get("market_impact", 5)
-        summary = news_data["news_analysis"].get("summary", "정보 없음")
+        summary = news_data["news_analysis"].get("summary", "No information available")
         
         risk_tolerance = user_data.get("risk_tolerance")
         
         # 프롬프트 작성
-        prompt = f"""
-                당신은 미국 주식 투자 전략 전문가입니다.
-                아래 정보를 종합하여 적절한 투자 시나리오를 결정하세요.
+        prompt = f"""You are a US stock market investment strategy expert. Based on the information below, determine the most appropriate investment scenario.
 
-                [시장 분석]
-                - 단기 추세: {short_term}
-                - 중기 추세: {mid_term}
-                - 장기 추세: {long_term}
-                - 위험 수준: {risk_level}
-                - 유동성: {liquidity}
+[Market Analysis]
+- Short-term trend: {short_term}
+- Mid-term trend: {mid_term}
+- Long-term trend: {long_term}
+- Risk level: {risk_level}
+- Liquidity: {liquidity}
 
-                [뉴스 분석]
-                - 요약: {summary}
-                - 감정 점수: {sentiment} (-1.0=부정 ~ +1.0=긍정)
-                - 시장 영향: {impact} (1=낮음 ~ 10=높음)
+[News Analysis]
+- Summary: {summary}
+- Sentiment score: {sentiment} (range: -1.0=negative to +1.0=positive)
+- Market impact: {impact} (scale: 1=low to 10=high)
 
-                [사용자 정보]
-                - 투자 성향: {risk_tolerance}
+[User Profile]
+- Risk tolerance: {risk_tolerance}
 
-                다음 9개 시나리오 중 하나를 선택하세요:
-                bull_aggressive, bull_neutral, bull_stable
-                sideways_aggressive, sideways_neutral, sideways_stable
-                bear_aggressive, bear_neutral, bear_stable
+Select ONE scenario from the following 9 options:
+bull_aggressive, bull_neutral, bull_stable
+sideways_aggressive, sideways_neutral, sideways_stable
+bear_aggressive, bear_neutral, bear_stable
 
-                응답 형식: "시나리오: [선택한_시나리오]"
-                """
+Response format: "Scenario: [selected_scenario]"
+"""
         
         return prompt
     
@@ -367,9 +365,11 @@ class PersonalizationAgent:
             llm_response = llm_response.split("<|message|>")[1]
             print(f"[디버그] <|message|> 이후: {llm_response[:100]}")
         
-        # "시나리오: bull_aggressive" 형식에서 추출
-        if "시나리오:" in llm_response:
-            scenario = llm_response.split("시나리오:")[1].strip()
+        # "Scenario: bull_aggressive" 형식에서 추출
+        if "Scenario:" in llm_response or "scenario:" in llm_response:
+            # 대소문자 구분 없이 처리
+            scenario_text = llm_response.lower()
+            scenario = scenario_text.split("scenario:")[1].strip().split()[0].strip()
             
             # 9개 시나리오 중 하나인지 확인
             valid_scenarios = [
