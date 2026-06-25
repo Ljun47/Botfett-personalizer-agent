@@ -1,4 +1,4 @@
-# Personalization Agent (FastAPI & LangGraph 고도화 버전)
+# Personalization Agent
 
 미국 주식 자동매매를 위한 AI 기반 개인화 에이전트입니다. 외부 백엔드 API 서비스와 LangGraph 워크플로우를 활용하여 시장 상황, 뉴스 분석, 사용자 투자 성향을 종합적으로 판단하고 최적의 투자 시나리오 및 최적 모델을 결정합니다.
 
@@ -6,7 +6,7 @@
 
 ## 1. 아키텍처 설계 (Architecture)
 
-본 에이전트는 **인프라 결합도 분리(FastAPI)** 및 **단일 프로세스 내 에이전트 제어 최적화(LangGraph)**를 실현한 구조를 가지고 있습니다.
+본 에이전트는 **인프라 결합도 분리(FastAPI)** 및 **단일 프로세스 내 에이전트 제어 최적화(LangGraph)** 를 실현한 구조를 가지고 있습니다.
 
 ```mermaid
 graph LR
