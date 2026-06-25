@@ -1,0 +1,24 @@
+version: '3.8'
+
+services:
+  # ① FastAPI User DB 서비스
+  personalization-db:
+    build: .
+    command: python run_db.py
+    ports:
+      - "8000:8000"
+    environment:
+      - PORT=8000
+    restart: always
+
+  # ② LangGraph 개인화 에이전트 서비스
+  personalization-agent:
+    build: .
+    command: python run_workflow.py
+    depends_on:
+      - personalization-db
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      # db-service 컨테이너의 이름을 Hostname으로 활용하여 도커 네트워크 내에서 통신
+      - USER_DB_URL=http://personalization-db:8000/api/users
+    restart: on-failure

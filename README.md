@@ -9,22 +9,60 @@
 본 에이전트는 **인프라 결합도 분리(FastAPI)** 및 **단일 프로세스 내 에이전트 제어 최적화(LangGraph)**를 실현한 구조를 가지고 있습니다.
 
 ```mermaid
-graph TD
-    START([START]) --> Market[Market Node<br>시장 분석 데이터 적재]
-    START --> News[News Node<br>뉴스 분석 데이터 적재]
-    START --> DB[User DB Node<br>FastAPI GET /api/users/user_id]
-    
-    Market --> Merge{LangGraph State Merge}
-    News --> Merge
-    DB --> Merge
-    
-    Merge --> Personalizer[Personalizer Node<br>LLM 시나리오 판단 및 최종 모델 선정]
-    Personalizer --> END([END])
-    
-    subgraph "External Backend Server (Port: 8000)"
-        DB_API[FastAPI DB Server]
+graph LR
+    %% 1. 메인 에이전트 (좌측)
+    subgraph Main_Container ["Main Agent Container"]
+        Main[Main Agent<br>Orchestrator]
     end
-    DB -.->|HTTP GET| DB_API
+
+    %% 2. 거래 및 검증 에이전트 (중앙 좌측)
+    subgraph Trade_Container ["Trade Agent Container"]
+        Trade[Trade Agent]
+        Validate[Trading Validation Agent]
+        
+        Trade <-->|6. 거래 검증 요청 및 결과| Validate
+    end
+
+    %% 3. 개인화 에이전트 (중앙 우측)
+    subgraph Personal_Container ["Personalization Agent Container"]
+        Personal[Personalization Agent]
+        FastAPI_DB[(FastAPI User DB Server<br>Port 8000)]
+        
+        Personal <-->|HTTP GET /api/users| FastAPI_DB
+    end
+
+    %% 4. 뉴스 요약 및 시장 분석 에이전트 (우측 - 상하 배치 완료)
+    subgraph Summary_Container ["Summary Agent Container"]
+        Summary[Summary Agent<br>News & Fund.]
+        MCPServer_S[MCP Server]
+        
+        Summary --> MCPServer_S
+    end
+
+    subgraph Market_Container ["Market Agent Container"]
+        Market[Market Analysis Agent]
+        MCPServer_M[MCP Server]
+        
+        Market --> MCPServer_M
+    end
+
+    %% -------------------------------------------------------------
+    %% 데이터 흐름 매핑 (순환 제거 및 좌우 정렬 강제화)
+    %% -------------------------------------------------------------
+    Main -->|1. 장 시작 후 3분 주기 요청| Trade
+    Trade -->|2. 개인화 매매 전략 요청| Personal
+    
+    %% 데이터 수집 요청
+    Personal -->|3. 뉴스 감성 조회| Summary
+    Personal -->|3. 시장 상태 조회| Market
+    
+    %% 데이터 수집 결과 반환 (역방향 순환 레이아웃 방지)
+    Personal <-.-|4. 뉴스 요약 전달| MCPServer_S
+    Personal <-.-|4. 지표 데이터 전달| MCPServer_M
+    
+    %% 최종 의사결정 라우팅
+    Personal -->|5. 시나리오 판별 및 실행 모델 전달| Trade
+    Trade -->|7. 최종 거래 완료 결과 통보| Main
 ```
 
 ---
@@ -203,3 +241,26 @@ USERS_DB = {
 ```python
 llm = APILLM(model_name="gpt-4o-mini")  # 다른 OpenAI 모델로 교체 가능
 ```
+
+---
+
+## 9. Docker 기반 컨테이너 실행 방법
+
+본 프로젝트는 분산 마이크로서비스 환경 모방 및 쉬운 이식성을 위해 Docker 및 Docker Compose 환경을 지원합니다.
+
+### ① 사전 설정
+컨테이너 실행 전에 로컬의 `.env` 파일에 API 키가 제대로 입력되어 있는지 확인합니다:
+```env
+OPENAI_API_KEY=your-actual-openai-api-key-here
+```
+
+### ② Docker Compose 실행
+프로젝트 루트 디렉토리에서 다음 명령어를 실행하여 외부 DB 서버와 개인화 에이전트 워크플로우를 동시에 기동합니다:
+```bash
+docker-compose up --build
+```
+이 명령어는 자동으로 로컬 `Dockerfile`을 빌드하고 다음을 수행합니다:
+1. `personalization-db` 컨테이너 기동 (FastAPI User DB Server - Port 8000 오픈)
+2. `personalization-agent` 컨테이너 기동 (LangGraph Workflow 에이전트 실행)
+3. 두 컨테이너 간의 격리된 Docker Bridge 네트워크를 활용하여 API 연동 통신
+

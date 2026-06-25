@@ -233,7 +233,8 @@ async def news_analysis_node(state: AgentState) -> Dict[str, Any]:
 async def user_db_node(state: AgentState) -> Dict[str, Any]:
     user_id = state.get("user_id", "user_001")
     print(f"[DB Node] 외부 DB API 연동 조회 시작... (user_id: {user_id})")
-    url = f"http://127.0.0.1:8000/api/users/{user_id}"
+    base_url = os.getenv("USER_DB_URL", "http://127.0.0.1:8000/api/users")
+    url = f"{base_url}/{user_id}"
     
     async with httpx.AsyncClient() as client:
         try:

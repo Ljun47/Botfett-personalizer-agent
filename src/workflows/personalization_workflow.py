@@ -7,7 +7,7 @@ from dotenv import load_dotenv
 from langgraph.graph import StateGraph, START, END
 
 # 기존 personalization_agent_gpt.py에서 모듈들을 임포트
-from personalization_agent_gpt import APILLM, PersonalizationAgent
+from src.agents.personalization_agent_gpt import APILLM, PersonalizationAgent
 
 load_dotenv()
 
@@ -59,7 +59,8 @@ async def user_db_node(state: AgentState) -> Dict[str, Any]:
     print(f"[DB Node] 외부 DB API 연동 조회 시작... (user_id: {user_id})")
     
     # uvicorn 로컬 호스트 주소
-    url = f"http://127.0.0.1:8000/api/users/{user_id}"
+    base_url = os.getenv("USER_DB_URL", "http://127.0.0.1:8000/api/users")
+    url = f"{base_url}/{user_id}"
     
     async with httpx.AsyncClient() as client:
         try:
