@@ -192,6 +192,8 @@ a2a-agent-personalization
 │       └── personalization_workflow.py
 ├── run_db.py                     # DB 서버 기동 진입 스크립트
 ├── run_workflow.py               # 워크플로우 에이전트 구동 진입 스크립트
+├── Dockerfile                    # 서비스별 컨테이너 빌드 정의서
+├── docker-compose.yml            # 멀티 컨테이너 서비스 오케스트레이션 구성 파일
 └── .env                          # API 키 설정 파일
 ```
 
