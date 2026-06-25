@@ -1,0 +1,6 @@
+.env
+.DS_Store
+src/agents/personalization_agent_gpt.py
+src/agents/personalization_agent_mlx.py
+**/__pycache__/
+*.pyc

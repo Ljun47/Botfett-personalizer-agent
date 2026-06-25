@@ -144,11 +144,9 @@ python run_workflow.py
 
 ### 📁 전체 디렉토리 구성
 ```
-a2a-agent-personalization-copy
+a2a-agent-personalization
 ├── src/
 │   ├── agents/                   # LLM 및 개인화 에이전트 모듈
-│   │   ├── personalization_agent_gpt.py
-│   │   ├── personalization_agent_mlx.py
 │   │   └── personalization_agent.py
 │   ├── api/                      # 외부 FastAPI DB 모의 서버
 │   │   └── server_db.py
