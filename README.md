@@ -1,148 +1,81 @@
-# Personalization Agent
+# Personalization Agent (FastAPI & LangGraph 고도화 버전)
 
-미국 주식 자동매매를 위한 AI 기반 개인화 에이전트입니다. LLM을 활용하여 시장 상황, 뉴스 분석, 사용자 투자 성향을 종합적으로 판단하고 최적의 투자 시나리오를 결정합니다.
+미국 주식 자동매매를 위한 AI 기반 개인화 에이전트입니다. 외부 백엔드 API 서비스와 LangGraph 워크플로우를 활용하여 시장 상황, 뉴스 분석, 사용자 투자 성향을 종합적으로 판단하고 최적의 투자 시나리오 및 최적 모델을 결정합니다.
 
-## 주요 기능
+---
 
-- **멀티 소스 데이터 통합**: 시장 분석, 뉴스 분석, 사용자 프로필 데이터를 종합 분석
-- **LLM 기반 시나리오 결정**: 9개 투자 시나리오 중 최적 전략 자동 선택
-- **A2A 프로토콜**: Agent-to-Agent 통신으로 다른 에이전트와 협업
-- **유저 DB 조회**: 사용자 프로필 데이터베이스 접근
+## 1. 아키텍처 설계 (Architecture)
 
-## 시스템 요구사항
+본 에이전트는 **인프라 결합도 분리(FastAPI)** 및 **단일 프로세스 내 에이전트 제어 최적화(LangGraph)**를 실현한 구조를 가지고 있습니다.
+
+```mermaid
+graph TD
+    START([START]) --> Market[Market Node<br>시장 분석 데이터 적재]
+    START --> News[News Node<br>뉴스 분석 데이터 적재]
+    START --> DB[User DB Node<br>FastAPI GET /api/users/user_id]
+    
+    Market --> Merge{LangGraph State Merge}
+    News --> Merge
+    DB --> Merge
+    
+    Merge --> Personalizer[Personalizer Node<br>LLM 시나리오 판단 및 최종 모델 선정]
+    Personalizer --> END([END])
+    
+    subgraph External Backend Server (Port: 8000)
+        DB_API[FastAPI DB Server]
+    end
+    DB -.->|HTTP GET| DB_API
+```
+
+---
+
+## 2. 주요 기능 (Features)
+
+- **LangGraph 기반 오케스트레이션**: 단일 프로세스 내에서 시장 데이터 수집, 뉴스 데이터 수집, 유저 프로필 조회를 비동기/병렬로 수행하고 최종 노드에서 취합(Merge)합니다.
+- **FastAPI 외부 DB 통신**: 기존 로컬 시뮬레이터를 걷어내고, 독립적으로 구동되는 외부 FastAPI 서버(`Port 8000`)를 통해 실제 API 통신으로 유저 성향 정보를 실시간 조회합니다.
+- **LLM 기반 시나리오 결정**: 수집한 모든 데이터(시장 상황 3종 × 투자 성향 3종 = 9개 시나리오)를 컨텍스트로 LLM을 호출하여 최적의 투자 시나리오 및 실행 모델을 결정합니다.
+- **네트워크 예외 처리**: 외부 DB 서버 연결 실패 시 기본값(`neutral`)으로 안전하게 대체 구동되는 Fallback 메커니즘을 지원합니다.
+
+---
+
+## 3. 시스템 요구사항 및 설치
 
 ### 필수 요구사항
-- **Python**: 3.12.10
-- **OpenAI API 키**: [OpenAI Platform](https://platform.openai.com/api-keys)에서 발급
+- **Python**: 3.9+ (LangGraph 및 FastAPI 지원 버전)
+- **OpenAI API Key**: OpenAI 호출용 API 키가 필요합니다.
 
-### 지원하는 LLM 모델
-- OpenAI GPT 시리즈
-  - `gpt-5.2` (현재 사용 중)
-  - `gpt-5-mini`
-  - `gpt-5.2-pro`
-
-## 설치 방법
-
-### 1. 필요한 패키지 설치
+### 패키지 설치
 ```bash
-pip install openai python-dotenv
+pip install -r requirements.txt
 ```
 
-### 2. 환경변수 설정 (API 키)
-
-프로젝트 폴더에 `.env` 파일을 생성하고 OpenAI API 키를 입력하세요:
-
-```bash
-# .env 파일 생성
-touch .env
-```
-
-`.env` 파일 내용:
-```
+### 환경변수 설정 (.env)
+프로젝트 루트 디렉토리에 `.env` 파일을 생성하고 다음과 같이 API 키를 입력합니다:
+```env
 OPENAI_API_KEY=your-actual-openai-api-key-here
 ```
 
-- `your-actual-openai-api-key-here`를 실제 OpenAI API 키로 교체하세요(필요 시 제공)
-- API 키는 [OpenAI Platform](https://platform.openai.com/api-keys)에서 발급받을 수 있습니다
+---
 
-## 실행 방법
+## 4. 실행 방법
 
-### 기본 실행
+### ① FastAPI DB 서버 백그라운드 구동 (Port 8000)
+사용자 프로필 조회를 처리하는 외부 데이터베이스 API 서버를 먼저 기동합니다.
 ```bash
-python personalization_agent_mvp.py
+python server_db.py
 ```
 
-### 실행 시 표시되는 정보
-- 입력/출력 토큰 수
-- 호출당 비용
-- 누적 총 비용
-
-### 다른 OpenAI 모델 사용하기
-코드의 `llm` 초기화 부분을 수정:
-
-```python
-# personalization_agent_mvp.py 파일 하단
-llm = APILLM(model_name="gpt-5.2")  # 또는 다른 OpenAI 모델
+### ② LangGraph 에이전트 구동
+새로운 터미널 창을 열고, 단일 프로세스 내에서 병렬 데이터 수집 및 의사결정을 수행하는 워크플로우 에이전트를 실행합니다.
+```bash
+python personalization_agent.py
 ```
 
-## 실행 예시
+---
 
-실행하면 4개의 테스트 케이스가 순차적으로 실행됩니다:
+## 5. 입력 및 출력 데이터 형식 (JSON)
 
-```
-### 테스트 1: 상승장 + 공격형 사용자 ###
-
-[OpenAI LLM] 모델: gpt-5.2
-✅ API 키 로드 완료
-
-[1] 시장 분석 데이터 수신 중...
-[2] 뉴스 분석 데이터 수신 중...
-[3] 사용자 프로필 조회 중...
-✅ 검증 통과
-
-[프롬프트] 생성 중...
-
-[OpenAI] API 호출 중...
-[토큰] 입력: 245 / 출력: 18
-[비용] 이번 호출: $0.001585
-[누적] 총 비용: $0.001585
-
-[LLM Raw Response] '시나리오: bear_stable'
-
-✅ 시나리오 파싱 성공: bull_aggressive
-✅ 선택된 모델: gpt-oss-20b-v1
-
-[출력] {
-  "scenario": "bull_aggressive",
-  "selected_model": "gpt-oss-20b-v1"
-}
-
-============================================================
-[최종 요약] OpenAI - gpt-5.2
-============================================================
-총 입력 토큰:  980
-총 출력 토큰:  72
-총 토큰:       1,052
-총 비용:       $0.006340
-============================================================
-```
-### 9개 투자 시나리오
-
-시장 상황(3) × 투자 성향(3) = 9개 시나리오
-
-| 시장 상황 | 공격형 (Aggressive) | 중립형 (Neutral) | 안정형 (Stable) |
-|----------|-------------------|-----------------|----------------|
-| 상승장 (Bull) | bull_aggressive | bull_neutral | bull_stable |
-| 보합장 (Sideways) | sideways_aggressive | sideways_neutral | sideways_stable |
-| 하락장 (Bear) | bear_aggressive | bear_neutral | bear_stable |
-
-
-## 코드 구조
-
-```
-personalization_agent_mvp.py
-├── A2AProtocol              # Agent-to-Agent 통신 시뮬레이터
-├── MCPServer                # 사용자 프로필 DB 시뮬레이터
-├── APILLM                   # OpenAI API 기반 LLM 래퍼
-│   ├── generate()           # LLM 호출 및 응답 생성
-│   ├── _calculate_cost()    # 토큰 기반 비용 계산
-│   └── print_summary()      # 최종 비용 요약
-├── PersonalizationAgent     # 메인 개인화 에이전트
-│   ├── process()            # 메인 실행 함수
-│   ├── _get_market_data()   # 시장 데이터 수신
-│   ├── _get_news_data()     # 뉴스 데이터 수신
-│   ├── _get_user_data()     # 사용자 프로필 조회
-│   ├── _validate_inputs()   # 입력 검증
-│   ├── _create_prompt()     # LLM 프롬프트 생성
-│   ├── _parse_scenario()    # LLM 응답 파싱
-│   └── _select_model()      # 시나리오별 모델 매핑
-├── MarketAnalysisAgent      # 시장 분석 에이전트 (시뮬레이션)
-└── NewsAnalysisAgent        # 뉴스 분석 에이전트 (시뮬레이션)
-```
-
-## 입력 데이터 형식
-
-### 1. 시장 분석 데이터 (A2A)
+### 시장 분석 데이터 (Market Data Input)
 ```json
 {
   "date": "2024-01-29",
@@ -154,14 +87,13 @@ personalization_agent_mvp.py
   "liquidity": "tight_and_rising"
 }
 ```
+**허용 범위 및 메타데이터:**
+- `short_term`, `mid_term`, `long_term`: `"bull"` (상승), `"bear"` (하락), `"sideways"` (횡보)
+- `risk_level`: `"low"` (낮음), `"medium"` (보통), `"high"` (높음), `"panic"` (공포)
+- `risk_score`: `0` ~ `6` 범위의 정수
+- `liquidity`: `"loose"` (풍부), `"neutral"` (보통), `"tight_and_rising"` (긴축 상승), `"tight_but_easing"` (긴축 완화)
 
-**가능한 값:**
-- `short_term`, `mid_term`, `long_term`: `"bull"`, `"bear"`, `"sideways"`
-- `risk_level`: `"low"`, `"medium"`, `"high"`, `"panic"`
-- `risk_score`: 0-6
-- `liquidity`: `"loose"`, `"neutral"`, `"tight_and_rising"`, `"tight_but_easing"`
-
-### 2. 뉴스 분석 데이터 (A2A)
+### 뉴스 분석 데이터 (News Data Input)
 ```json
 {
   "news_analysis": {
@@ -171,24 +103,22 @@ personalization_agent_mvp.py
   }
 }
 ```
+**허용 범위 및 메타데이터:**
+- `sentiment_score`: `-1.0` (매우 부정) ~ `+1.0` (매우 긍정) 범위의 실수
+- `market_impact`: `1` (낮음) ~ `10` (매우 높음) 범위의 정수
 
-**가능한 값:**
-- `sentiment_score`: -1.0 (매우 부정) ~ +1.0 (매우 긍정)
-- `market_impact`: 1 (낮음) ~ 10 (매우 높음)
-
-### 3. 사용자 프로필
+### 사용자 프로필 데이터 (User DB / FastAPI GET Output)
 ```json
 {
   "user_id": "user_001",
   "risk_tolerance": "aggressive"
 }
 ```
+**허용 범위 및 메타데이터:**
+- `risk_tolerance`: `"aggressive"` (공격형), `"neutral"` (중립형), `"stable"` (안정형)
 
-**가능한 값:**
-- `risk_tolerance`: `"aggressive"`, `"neutral"`, `"stable"`
 
-## 출력 데이터 형식
-
+### 의사결정 최종 출력 데이터 (Final Output)
 ```json
 {
   "scenario": "bull_aggressive",
@@ -196,36 +126,73 @@ personalization_agent_mvp.py
 }
 ```
 
-## 커스터마이징
+---
 
-### API 키 변경
-`.env` 파일에서 API 키를 수정하세요:
+## 6. 9개 투자 시나리오 정의
+
+시장의 흐름과 사용자의 성향을 매핑하여 9개의 시나리오와 모델이 결정됩니다:
+
+| 시장 상황 | 공격형 (Aggressive) | 중립형 (Neutral) | 안정형 (Stable) |
+|----------|-------------------|-----------------|----------------|
+| 상승장 (Bull) | bull_aggressive | bull_neutral | bull_stable |
+| 보합장 (Sideways) | sideways_aggressive | sideways_neutral | sideways_stable |
+| 하락장 (Bear) | bear_aggressive | bear_neutral | bear_stable |
+
+---
+
+## 7. 코드 구조 및 역할
+
+### 📁 전체 디렉토리 구성
 ```
-OPENAI_API_KEY=your-new-api-key
+a2a-agent-personalization-copy
+├── server_db.py                  # FastAPI 기반 외부 유저 DB 서버
+├── personalization_agent.py      # LangGraph 워크플로우 통합 개인화 에이전트
+└── .env                          # API 키 설정 파일
 ```
 
-### 모델 변경
-`PersonalizationAgent` 초기화 부분 수정:
+### 📁 server_db.py 상세 구조
+- **FastAPI App Instance** (`app`): 사용자 정보 데이터 조회를 제공하는 엔드포인트 호스트.
+- **In-Memory Database** (`USERS_DB`): 가상의 사용자 프로필 데이터 셋.
+- **GET Endpoint** (`/api/users/{user_id}`): 지정된 유저의 성향 정보(`risk_tolerance`)를 JSON 형식으로 조회하여 반환.
+
+### 📁 personalization_agent.py 상세 구조
+```
+personalization_agent.py
+├── APILLM                            # OpenAI API 호출 및 비용 분석 클래스
+│   ├── generate(prompt)              # 프롬프트 호출 및 비용 누적 계산
+│   ├── _calculate_cost()             # 입력/출력 토큰 기반 비용 측정
+│   └── print_summary()               # 누적 사용 토큰 및 비용 최종 요약 출력
+├── PersonalizationAgent              # 의사결정 비즈니스 로직 클래스
+│   ├── validate_inputs()             # 수집된 에이전트 데이터 검증
+│   ├── create_prompt()               # 의사결정을 위한 LLM 프롬프트 조립
+│   ├── parse_scenario()              # LLM의 자연어 응답에서 핵심 시나리오 파싱
+│   └── select_model()                # 판단된 시나리오에 1:1 대응하는 모델 선택
+├── AgentState (TypedDict)            # 워크플로우 노드 간 공유되는 상태 객체
+├── Workflow Nodes (LangGraph 노드 함수)
+│   ├── market_analysis_node(state)   # 시장 상황 데이터 적재 노드 (Mock)
+│   ├── news_analysis_node(state)     # 뉴스 데이터 적재 노드 (Mock)
+│   ├── user_db_node(state)           # server_db.py에 HTTP API 통신을 수행하는 유저 DB 조회 노드
+│   └── personalization_decision_node # 수집 데이터를 취합하여 최종 의사결정을 수행하는 판단 노드
+├── build_workflow()                  # StateGraph 빌드 및 라우팅 설정 컴파일
+└── main()                            # 3명의 테스트 유저에 대한 비동기 실행 메인 진입 함수
+```
+
+
+---
+
+## 8. 커스터마이징 방법
+
+### 사용자 추가
+`server_db.py` 파일 내 `USERS_DB` 딕셔너리에 사용자를 수동 추가하거나 API를 확장할 수 있습니다.
 ```python
-llm = APILLM(model_name="gpt-5.2")  # 다른 OpenAI 모델로 변경
-```
-
-### 가격 정보 업데이트
-`APILLM` 클래스의 `__init__` 메서드에서 가격 수정:
-```python
-self.input_price = 5.00   # 입력 토큰당 가격 (USD per 1M tokens)
-self.output_price = 20.00  # 출력 토큰당 가격
-```
-
-### 프롬프트 수정
-`_create_prompt()` 메서드에서 LLM에게 전달할 프롬프트를 커스터마이징할 수 있습니다.
-
-### 사용자 데이터 추가
-`MCPServer` 클래스의 `users` 딕셔너리에 사용자를 추가:
-
-```python
-self.users = {
+USERS_DB = {
     "user_001": {"risk_tolerance": "aggressive"},
     "your_user_id": {"risk_tolerance": "neutral"}
 }
+```
+
+### 에이전트 모델 설정 변경
+`personalization_agent.py` 내 `personalization_decision_node`에서 구동 모델을 설정할 수 있습니다.
+```python
+llm = APILLM(model_name="gpt-4o-mini")  # 다른 OpenAI 모델로 교체 가능
 ```

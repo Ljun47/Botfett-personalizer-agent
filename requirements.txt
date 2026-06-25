@@ -10,3 +10,10 @@ python-dotenv>=1.0.0
 # 기본 라이브러리 (Python 3.12에 대부분 포함되어 있지만 명시)
 # json - 내장 라이브러리
 # datetime - 내장 라이브러리
+
+# LangGraph & FastAPI 아키텍처 고도화 관련 라이브러리
+langgraph
+fastapi
+uvicorn
+httpx
+
