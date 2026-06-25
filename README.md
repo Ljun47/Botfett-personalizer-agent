@@ -21,7 +21,7 @@ graph TD
     Merge --> Personalizer[Personalizer Node<br>LLM 시나리오 판단 및 최종 모델 선정]
     Personalizer --> END([END])
     
-    subgraph External Backend Server (Port: 8000)
+    subgraph "External Backend Server (Port: 8000)"
         DB_API[FastAPI DB Server]
     end
     DB -.->|HTTP GET| DB_API
@@ -62,13 +62,13 @@ OPENAI_API_KEY=your-actual-openai-api-key-here
 ### ① FastAPI DB 서버 백그라운드 구동 (Port 8000)
 사용자 프로필 조회를 처리하는 외부 데이터베이스 API 서버를 먼저 기동합니다.
 ```bash
-python server_db.py
+python run_db.py
 ```
 
 ### ② LangGraph 에이전트 구동
 새로운 터미널 창을 열고, 단일 프로세스 내에서 병렬 데이터 수집 및 의사결정을 수행하는 워크플로우 에이전트를 실행합니다.
 ```bash
-python personalization_agent.py
+python run_workflow.py
 ```
 
 ---
@@ -145,8 +145,17 @@ python personalization_agent.py
 ### 📁 전체 디렉토리 구성
 ```
 a2a-agent-personalization-copy
-├── server_db.py                  # FastAPI 기반 외부 유저 DB 서버
-├── personalization_agent.py      # LangGraph 워크플로우 통합 개인화 에이전트
+├── src/
+│   ├── agents/                   # LLM 및 개인화 에이전트 모듈
+│   │   ├── personalization_agent_gpt.py
+│   │   ├── personalization_agent_mlx.py
+│   │   └── personalization_agent.py
+│   ├── api/                      # 외부 FastAPI DB 모의 서버
+│   │   └── server_db.py
+│   └── workflows/                # LangGraph 비동기 제어 루프
+│       └── personalization_workflow.py
+├── run_db.py                     # DB 서버 기동 진입 스크립트
+├── run_workflow.py               # 워크플로우 에이전트 구동 진입 스크립트
 └── .env                          # API 키 설정 파일
 ```
 
