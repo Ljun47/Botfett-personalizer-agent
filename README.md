@@ -65,6 +65,48 @@ graph LR
     Trade -->|7. 최종 거래 완료 결과 통보| Main
 ```
 
+### 1.2. 개인화 에이전트 내부 로직 아키텍처 (Personalization Agent Internal Logic)
+
+```mermaid
+graph TD
+    %% 시작 및 병렬 수집
+    START([START]) --> ParallelCollect{병렬 데이터 수집 개시}
+    
+    subgraph "1단계: 데이터 수집 노드 (LangGraph Parallel Nodes)"
+        ParallelCollect --> NodeMarket[market_agent<br>시장 추세 및 리스크 분석 수집]
+        ParallelCollect --> NodeNews[news_agent<br>뉴스 감성 및 영향도 수집]
+        ParallelCollect --> NodeDB[user_db_agent<br>외부 DB 연동 유저 성향 조회]
+        
+        NodeDB --> CheckDBConnection{DB 연결 성공 여부?}
+        CheckDBConnection -->|성공| UserTol[유저 고유 성향 반환<br>aggressive / neutral / stable]
+        CheckDBConnection -->|실패 혹은 타임아웃| DBFallback[중립 성향 폴백 반환<br>'neutral']
+    end
+
+    %% State 적재 및 의사결정 노드 진입
+    NodeMarket --> State[AgentState 상태 객체 적재]
+    NodeNews --> State
+    UserTol --> State
+    DBFallback --> State
+
+    State --> NodeDecision[personalization_agent 노드 진입]
+    
+    %% 의사결정 엔진 내부 흐름
+    subgraph "2단계: 개인화 의사결정 엔진 (PersonalizationAgent)"
+        NodeDecision --> Validation{필수 필드 검증}
+        Validation -->|누락 감지| FallbackRes[Fallback Response 반환<br>sideways_neutral]
+        
+        Validation -->|검증 통과| PromptEng[프롬프트 제너레이터<br>시장/뉴스/유저정보 결합]
+        PromptEng --> LLM[LLM 추론 및 시나리오 결정<br>gpt-5]
+        LLM --> Parse[시나리오 파싱 및 검증]
+        Parse --> Router[모델 매핑 라우터<br>9개 시나리오 ➔ 대응 모델 매핑]
+        Router --> SelectedModel[최종 거래 모델 결정<br>gpt-oss-20b-v1 ~ v9]
+    end
+
+    %% 최종 종료
+    FallbackRes --> END([END])
+    SelectedModel --> END
+```
+
 ---
 
 ## 2. 주요 기능 (Features)
